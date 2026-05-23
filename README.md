@@ -8,6 +8,23 @@ can call directly. Works with **Claude Desktop**, **Continue.dev**,
 > ~47,000 Irish supermarket SKUs across Aldi, Tesco, SuperValu and Dunnes
 > Stores. Refreshed every Friday at 02:00 UTC. Now queryable by Claude.
 
+## Requires a BasketWatch API key
+
+This MCP server is a **thin client over the BasketWatch API** — you'll need
+an API key to use it. Three ways to get one:
+
+- **Direct subscription** (recommended for production use): unlimited API
+  access, weekly CSV exports, custom support. Email
+  **basketwatchireland@gmail.com** to subscribe.
+- **Trial / evaluation key**: time-limited key for one-off exploration.
+  Email the same address with subject *"MCP trial key request"*.
+- **Already on Apify or RapidAPI?** Those channels have their own auth
+  flow and don't use this MCP server — use the SDK / proxy URL they
+  provide instead.
+
+The MCP server itself is free open-source — the API access behind it is
+what you pay for.
+
 ## What your agent can do
 
 Once installed, your agent has 8 grocery-aware tools:
@@ -49,30 +66,33 @@ pip install -e .
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `BASKETWATCH_API_BASE` | (required) | Origin of the BasketWatch API (e.g. `https://basketwatch.fly.dev`) |
-| `BASKETWATCH_API_KEY` | (none) | API key for higher-tier usage. Free-tier limits apply without one |
-| `BASKETWATCH_MCP_DAILY_LIMIT` | `100` | Free-tier cap — requests per UTC day |
-| `BASKETWATCH_MCP_RATE_PER_MIN` | `20` | Sliding-window rate limit — requests per 60 seconds |
+| `BASKETWATCH_API_BASE` | (required) | Origin of the BasketWatch API (e.g. `https://basketwatch.fly.dev`, or `https://api.basketwatch.ie` once that's live) |
+| `BASKETWATCH_API_KEY` | (required) | Your BasketWatch API key — issued when you subscribe / request a trial |
+| `BASKETWATCH_MCP_DAILY_LIMIT` | `0` (off) | Optional client-side daily cap — extra safety on top of your key's server-side limit |
+| `BASKETWATCH_MCP_RATE_PER_MIN` | `0` (off) | Optional client-side per-minute rate limit |
 
-The daily counter is persisted to `~/.basketwatch-mcp/usage.json` so it
-survives Claude Desktop restarts and resets at 00:00 UTC.
+**Important**: by default the MCP server imposes **no client-side rate
+limits** — paid subscribers get whatever throughput their key allows on the
+BasketWatch origin. The two `BASKETWATCH_MCP_*_LIMIT` env vars are escape
+valves for use cases like:
 
-When either limit is hit, every tool returns:
+- Giving a Claude Desktop install to someone who shouldn't burn through
+  the family / team API quota
+- Self-imposed budget caps during evaluation
+
+The origin's per-key rate limit (enforced server-side) is the
+authoritative throttle. Trial keys get tight limits; paid-subscriber keys
+get high or unlimited throughput.
+
+When a client-side limit is configured AND hit, every tool returns:
 
 ```json
 {
-  "error": "Free-tier daily limit reached: 100 requests per day. Resets at 00:00 UTC...",
+  "error": "Client-side rate limit reached: ...",
   "limit_hit": true,
   "hint": "Email basketwatchireland@gmail.com to get an API key with higher / unlimited usage."
 }
 ```
-
-The LLM surfacing this to the user is the lead funnel — heavy users
-self-identify and email for a paid subscription.
-
-Get an API key: email `basketwatchireland@gmail.com` for a direct
-subscription, or use [BasketWatch on RapidAPI](https://rapidapi.com/) /
-[BasketWatch on Apify](https://apify.com/) for usage-based billing.
 
 ## Hook it up to Claude Desktop
 

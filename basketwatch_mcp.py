@@ -48,13 +48,32 @@ from mcp.server.fastmcp import FastMCP
 API_BASE = os.environ.get("BASKETWATCH_API_BASE", "").rstrip("/")
 API_KEY = os.environ.get("BASKETWATCH_API_KEY", "")
 
-# Free-tier defaults for unattended MCP use. Anyone wanting more should
-# email basketwatchireland@gmail.com for a higher-limit API key. These
-# limits are enforced CLIENT-SIDE — a determined user could fork the
-# server, but the BasketWatch origin still rejects requests above the
-# server-side per-key rate limit, so the upper bound is enforced there.
-DAILY_LIMIT = int(os.environ.get("BASKETWATCH_MCP_DAILY_LIMIT", "100"))
-RATE_LIMIT_PER_MIN = int(os.environ.get("BASKETWATCH_MCP_RATE_PER_MIN", "20"))
+# Client-side rate limits — DEFAULT OFF.
+#
+# v0.1.0 enforced 100/day + 20/min in the MCP server itself. That was a
+# design mistake: paying subscribers (who paid for unlimited via their
+# key) would have been throttled by the very thin client they were using.
+# Rate limiting belongs on the ORIGIN, keyed per-API-key, where the
+# server-side `api_keys` table can express "this key is trial / unlimited /
+# enterprise" once and have every channel (direct, MCP, RapidAPI, Apify)
+# enforce it consistently.
+#
+# These env vars stay as escape valves — set them if you want extra
+# client-side caps on top of the origin's enforcement (e.g. you're
+# handing a Claude Desktop install to someone you don't fully trust).
+# A value of 0 (or unset) disables that layer entirely, which is the
+# default behaviour.
+def _opt_in_int(name: str) -> int:
+    raw = os.environ.get(name, "0").strip()
+    try:
+        v = int(raw)
+        return v if v > 0 else 0
+    except ValueError:
+        return 0
+
+
+DAILY_LIMIT = _opt_in_int("BASKETWATCH_MCP_DAILY_LIMIT")
+RATE_LIMIT_PER_MIN = _opt_in_int("BASKETWATCH_MCP_RATE_PER_MIN")
 
 # Where the daily counter is persisted (survives Claude Desktop restarts).
 _USAGE_DIR = Path.home() / ".basketwatch-mcp"
@@ -83,7 +102,9 @@ if not API_BASE:
 # `hint` field that an LLM can surface to the user — driving the lead
 # funnel toward a real API key.
 
-_recent_call_times: deque[float] = deque(maxlen=RATE_LIMIT_PER_MIN * 2)
+# maxlen falls back to 64 when no per-minute limit is set so the deque
+# stays bounded even in the (unused) no-limit code path.
+_recent_call_times: deque[float] = deque(maxlen=max(RATE_LIMIT_PER_MIN, 32) * 2)
 
 
 def _load_daily_count(today_iso: str) -> int:
@@ -115,41 +136,53 @@ _today_count: int = 0
 
 
 def _check_and_consume() -> tuple[bool, str | None]:
-    """Decrement a free-tier slot if available. Returns (ok, error_message)."""
+    """Decrement a client-side limit slot if any limit is configured.
+
+    Returns (ok, error_message). If neither DAILY_LIMIT nor RATE_LIMIT_PER_MIN
+    is set (both default 0), this is a no-op — the request is allowed through
+    and the origin's per-API-key rate limit is the only enforcement. That's
+    the default and recommended config for paying subscribers.
+    """
+    if DAILY_LIMIT == 0 and RATE_LIMIT_PER_MIN == 0:
+        return True, None
+
     global _today_iso, _today_count
 
     now_dt = datetime.now(timezone.utc)
     today_iso = now_dt.date().isoformat()
 
-    # First call of the day — load persisted count.
     if _today_iso != today_iso:
         _today_iso = today_iso
         _today_count = _load_daily_count(today_iso)
 
-    # Per-minute rate limit (sliding window).
-    now_ts = now_dt.timestamp()
-    cutoff = now_ts - 60.0
-    while _recent_call_times and _recent_call_times[0] < cutoff:
-        _recent_call_times.popleft()
-    if len(_recent_call_times) >= RATE_LIMIT_PER_MIN:
-        return False, (
-            f"Free-tier rate limit reached: {RATE_LIMIT_PER_MIN} requests "
-            f"per minute. Wait ~60 seconds, or get an API key for higher "
-            f"limits — email basketwatchireland@gmail.com."
-        )
+    # Per-minute rate limit (sliding window) — only if configured.
+    if RATE_LIMIT_PER_MIN > 0:
+        now_ts = now_dt.timestamp()
+        cutoff = now_ts - 60.0
+        while _recent_call_times and _recent_call_times[0] < cutoff:
+            _recent_call_times.popleft()
+        if len(_recent_call_times) >= RATE_LIMIT_PER_MIN:
+            return False, (
+                f"Client-side rate limit reached: {RATE_LIMIT_PER_MIN} "
+                f"requests per minute (configured via BASKETWATCH_MCP_RATE_PER_MIN). "
+                f"Wait ~60 seconds or remove the env var to defer to your "
+                f"API key's server-side limit instead."
+            )
+        _recent_call_times.append(now_ts)
 
-    # Daily cap.
-    if _today_count >= DAILY_LIMIT:
-        return False, (
-            f"Free-tier daily limit reached: {DAILY_LIMIT} requests per day. "
-            f"Resets at 00:00 UTC. For unlimited usage email "
-            f"basketwatchireland@gmail.com — direct subscription or "
-            f"higher-tier API key available."
-        )
+    # Daily cap — only if configured.
+    if DAILY_LIMIT > 0:
+        if _today_count >= DAILY_LIMIT:
+            return False, (
+                f"Client-side daily limit reached: {DAILY_LIMIT} requests/day "
+                f"(configured via BASKETWATCH_MCP_DAILY_LIMIT). Resets at 00:00 "
+                f"UTC. For unlimited usage, unset the env var and rely on your "
+                f"API key's server-side limit — or email basketwatchireland@gmail.com "
+                f"for a higher-tier key."
+            )
+        _today_count += 1
+        _save_daily_count(today_iso, _today_count)
 
-    _recent_call_times.append(now_ts)
-    _today_count += 1
-    _save_daily_count(today_iso, _today_count)
     return True, None
 
 

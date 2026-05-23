@@ -1,7 +1,7 @@
 [project]
 name = "basketwatch-mcp"
-version = "0.1.0"
-description = "Model Context Protocol server for BasketWatch — Irish grocery data for AI agents"
+version = "0.2.0"
+description = "Model Context Protocol server for BasketWatch — Irish grocery data for AI agents. Thin client over the BasketWatch API; requires an API key (free trial keys available on request)."
 authors = [{ name = "BasketWatch", email = "basketwatchireland@gmail.com" }]
 readme = "README.md"
 license = { text = "MIT" }
