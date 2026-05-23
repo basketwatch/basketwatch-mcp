@@ -1,0 +1,35 @@
+[project]
+name = "basketwatch-mcp"
+version = "0.1.0"
+description = "Model Context Protocol server for BasketWatch — Irish grocery data for AI agents"
+authors = [{ name = "BasketWatch", email = "basketwatchireland@gmail.com" }]
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+keywords = ["mcp", "ireland", "grocery", "supermarket", "prices", "agent", "claude", "tesco", "aldi", "supervalu", "dunnes"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+    "License :: OSI Approved :: MIT License",
+]
+dependencies = [
+    "mcp>=1.0",
+    "httpx>=0.27",
+]
+
+[project.scripts]
+basketwatch-mcp = "basketwatch_mcp:main"
+
+[project.urls]
+Homepage = "https://github.com/basketwatch/basketwatch-mcp"
+Issues = "https://github.com/basketwatch/basketwatch-mcp/issues"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["basketwatch_mcp.py"]
