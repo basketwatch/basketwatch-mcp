@@ -6,7 +6,7 @@ can call directly. Works with **Claude Desktop**, **Continue.dev**,
 **Cursor**, and any other MCP-compatible client.
 
 > ~47,000 Irish supermarket SKUs across Aldi, Tesco, SuperValu and Dunnes
-> Stores. Refreshed every Friday at 02:00 UTC. Now queryable by Claude.
+> Stores. Refreshed every night. Now queryable by Claude.
 
 ## Requires a BasketWatch API key
 
@@ -15,7 +15,7 @@ an API key to use it. Three ways to get one:
 
 - **Direct subscription** (recommended for production use): unlimited API
   access, weekly CSV exports, custom support. Email
-  **basketwatchireland@gmail.com** to subscribe.
+  **info@basketwatchireland.com** to subscribe.
 - **Trial / evaluation key**: time-limited key for one-off exploration.
   Email the same address with subject *"MCP trial key request"*.
 - **Already on Apify or RapidAPI?** Those channels have their own auth
@@ -90,7 +90,7 @@ When a client-side limit is configured AND hit, every tool returns:
 {
   "error": "Client-side rate limit reached: ...",
   "limit_hit": true,
-  "hint": "Email basketwatchireland@gmail.com to get an API key with higher / unlimited usage."
+  "hint": "Email info@basketwatchireland.com to get an API key with higher / unlimited usage."
 }
 ```
 
@@ -158,11 +158,11 @@ python basketwatch_mcp.py
 
 ## Data freshness
 
-- All four retailers are scraped every **Friday at 02:00 UTC**.
+- All four retailers are refreshed **every night**.
 - Each tool response includes a `scrape_date` field per row so the agent
   knows exactly when each price was captured.
 - Higher-cadence pulls (daily / twice-weekly) are available with a direct
-  subscription — email `basketwatchireland@gmail.com`.
+  subscription — email `info@basketwatchireland.com`.
 
 ## Not affiliated
 

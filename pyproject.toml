@@ -1,8 +1,8 @@
 [project]
 name = "basketwatch-mcp"
-version = "0.2.0"
+version = "0.2.1"
 description = "Model Context Protocol server for BasketWatch — Irish grocery data for AI agents. Thin client over the BasketWatch API; requires an API key (free trial keys available on request)."
-authors = [{ name = "BasketWatch", email = "basketwatchireland@gmail.com" }]
+authors = [{ name = "BasketWatch", email = "info@basketwatchireland.com" }]
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.10"
@@ -16,7 +16,11 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
 ]
 dependencies = [
-    "mcp>=1.0",
+    # UPPER BOUND IS LOAD-BEARING. mcp 2.x renamed FastMCP to MCPServer and
+    # removed mcp.server.fastmcp, so an unpinned install resolves to 2.x and the
+    # server dies on import before a customer ever sees a tool. Found by
+    # installing the wheel into a clean venv and speaking MCP to it.
+    "mcp>=1.0,<2",
     "httpx>=0.27",
 ]
 

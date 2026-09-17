@@ -63,6 +63,17 @@ API_KEY = os.environ.get("BASKETWATCH_API_KEY", "")
 # handing a Claude Desktop install to someone you don't fully trust).
 # A value of 0 (or unset) disables that layer entirely, which is the
 # default behaviour.
+# Hard ceiling on rows any single tool call may return.
+#
+# Records are the product, sold at EUR0.001 each, so a tool handing back 500
+# rows a call gives away EUR0.50 of data per call, and list_products takes an
+# offset so the catalogue is walkable. When the server runs against the
+# customer's OWN key their credits meter normally and a high ceiling is
+# harmless; the default is conservative so a misconfigured or shared key cannot
+# become a bulk export. 50 matches the anonymous sample on the API.
+MAX_ROWS = max(1, int(os.environ.get("BASKETWATCH_MCP_MAX_ROWS", "50")))
+
+
 def _opt_in_int(name: str) -> int:
     raw = os.environ.get(name, "0").strip()
     try:
@@ -177,7 +188,7 @@ def _check_and_consume() -> tuple[bool, str | None]:
                 f"Client-side daily limit reached: {DAILY_LIMIT} requests/day "
                 f"(configured via BASKETWATCH_MCP_DAILY_LIMIT). Resets at 00:00 "
                 f"UTC. For unlimited usage, unset the env var and rely on your "
-                f"API key's server-side limit — or email basketwatchireland@gmail.com "
+                f"API key's server-side limit — or email info@basketwatchireland.com "
                 f"for a higher-tier key."
             )
         _today_count += 1
@@ -225,7 +236,7 @@ def _get(path: str, params: dict | None = None) -> Any:
         return {
             "error": msg,
             "limit_hit": True,
-            "hint": "Email basketwatchireland@gmail.com to get an API key "
+            "hint": "Email info@basketwatchireland.com to get an API key "
                     "with higher / unlimited usage.",
         }
     try:
@@ -248,10 +259,10 @@ mcp = FastMCP(
     "basketwatch",
     instructions=(
         "Tools to query Irish grocery data — shelf prices, promotions, "
-        "loyalty-card prices and weekly price changes across Aldi, Tesco, "
-        "SuperValu and Dunnes Stores. Data refreshes every Friday at 02:00 "
-        "UTC. Use these tools when the user asks about Irish supermarket "
-        "prices, comparisons, promotions, or price trends."
+        "loyalty-card prices and day-over-day price changes across Aldi, Tesco, "
+        "SuperValu and Dunnes Stores. Data refreshes every night across all "
+        "four retailers. Use these tools when the user asks about Irish "
+        "supermarket prices, comparisons, promotions, or price trends."
     ),
 )
 
@@ -284,7 +295,7 @@ def search_products(query: str, store: str | None = None, limit: int = 10) -> An
     store = store or "aldi"
     return _get(
         _store_path(store, "products"),
-        params={"q": query, "limit": min(int(limit), 500)},
+        params={"q": query, "limit": min(int(limit), MAX_ROWS)},
     )
 
 
@@ -304,7 +315,7 @@ def compare_price_across_stores(query: str, limit_per_store: int = 5) -> dict:
     for store in ("aldi", "tesco", "supervalu", "dunnes"):
         result = _get(
             _store_path(store, "products"),
-            params={"q": query, "limit": limit_per_store},
+            params={"q": query, "limit": min(int(limit_per_store), MAX_ROWS)},
         )
         out[store] = result if isinstance(result, list) else [result]
     return out
@@ -327,7 +338,7 @@ def get_promotions(store: str, limit: int = 25) -> Any:
         return {"error": "Aldi doesn't publish multibuy promotions; "
                          "no promotions dataset is available for Aldi."}
     return _get(_store_path(store, "promotions"),
-                params={"limit": min(int(limit), 500)})
+                params={"limit": min(int(limit), MAX_ROWS)})
 
 
 @mcp.tool()
@@ -343,7 +354,7 @@ def recent_price_changes(store: str, limit: int = 25) -> Any:
         limit: how many movers to return (default 25).
     """
     return _get(_store_path(store, "changes"),
-                params={"limit": min(int(limit), 500)})
+                params={"limit": min(int(limit), MAX_ROWS)})
 
 
 @mcp.tool()
@@ -357,7 +368,7 @@ def newly_added_products(store: str, days_back: int = 7, limit: int = 25) -> Any
         limit: how many new products to return.
     """
     return _get(_store_path(store, "new-products"),
-                params={"days": int(days_back), "limit": min(int(limit), 500)})
+                params={"days": int(days_back), "limit": min(int(limit), MAX_ROWS)})
 
 
 @mcp.tool()
@@ -371,7 +382,7 @@ def removed_products(store: str, days_back: int = 7, limit: int = 25) -> Any:
         limit: how many removed products to return.
     """
     return _get(_store_path(store, "removed"),
-                params={"days": int(days_back), "limit": min(int(limit), 500)})
+                params={"days": int(days_back), "limit": min(int(limit), MAX_ROWS)})
 
 
 @mcp.tool()
@@ -389,7 +400,7 @@ def list_products(store: str, limit: int = 100, offset: int = 0) -> Any:
         offset: pagination offset.
     """
     return _get(_store_path(store, "products"),
-                params={"limit": min(int(limit), 500), "offset": int(offset)})
+                params={"limit": min(int(limit), MAX_ROWS), "offset": int(offset)})
 
 
 # ---------------------------------------------------------------------------
