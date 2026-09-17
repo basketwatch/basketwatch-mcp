@@ -5,7 +5,7 @@ exposes the **BasketWatch Irish grocery data** API as tools your AI agent
 can call directly. Works with **Claude Desktop**, **Continue.dev**,
 **Cursor**, and any other MCP-compatible client.
 
-> ~47,000 Irish supermarket SKUs across Aldi, Tesco, SuperValu and Dunnes
+> ~50,000 Irish supermarket SKUs across Aldi, Tesco, SuperValu and Dunnes
 > Stores. Refreshed every night. Now queryable by Claude.
 
 ## Try it with no key at all
@@ -23,7 +23,6 @@ bought up front as credits. No subscription, no monthly minimum, and
 
 | Pack | Records |
 |---|---|
-| EUR 1.00 | 1,000 |
 | EUR 49.99 | 49,990 |
 | EUR 99.99 | 99,990 |
 | EUR 199.99 | 199,990 |
