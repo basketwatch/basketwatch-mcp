@@ -8,22 +8,56 @@ can call directly. Works with **Claude Desktop**, **Continue.dev**,
 > ~47,000 Irish supermarket SKUs across Aldi, Tesco, SuperValu and Dunnes
 > Stores. Refreshed every night. Now queryable by Claude.
 
-## Requires a BasketWatch API key
+## Try it with no key at all
 
-This MCP server is a **thin client over the BasketWatch API** — you'll need
-an API key to use it. Three ways to get one:
+Install it, point it at the API, ask a question. With no key you get a live
+**50-row sample** on every tool, straight from this morning's scrape. Real
+prices, real promotions, enough to see whether the data is what you need
+before paying anything.
 
-- **Direct subscription** (recommended for production use): unlimited API
-  access, weekly CSV exports, custom support. Email
-  **info@basketwatchireland.com** to subscribe.
-- **Trial / evaluation key**: time-limited key for one-off exploration.
-  Email the same address with subject *"MCP trial key request"*.
-- **Already on Apify or RapidAPI?** Those channels have their own auth
-  flow and don't use this MCP server — use the SDK / proxy URL they
-  provide instead.
+## Paying for it: credit packs
 
-The MCP server itself is free open-source — the API access behind it is
-what you pay for.
+Access is **metered per record returned**, at **EUR 0.001 per record**,
+bought up front as credits. No subscription, no monthly minimum, and
+**credits never expire**.
+
+| Pack | Records |
+|---|---|
+| EUR 1.00 | 1,000 |
+| EUR 49.99 | 49,990 |
+| EUR 99.99 | 99,990 |
+| EUR 199.99 | 199,990 |
+| EUR 499.99 | 499,990 |
+| EUR 999.99 | 999,990 |
+
+Buy one at **<https://basketwatchireland.com/pricing>** and you are emailed a
+key. Put it in `BASKETWATCH_API_KEY` and this server starts using it.
+
+**Your credits work here exactly as they do anywhere else.** There is no
+separate MCP plan, no surcharge and no second balance to keep track of. One
+record returned costs one credit whether it came from `curl`, your own code,
+or your assistant calling a tool. Every response reports what it cost and
+what is left, and `GET /api/credits` shows the balance and ledger for free.
+
+Calls that return no rows are free. A question that finds nothing costs
+nothing.
+
+### Agents can buy their own
+
+An autonomous agent can purchase a credit pack itself, with no human, no
+browser and no card entry, by paying over
+[MPP](https://mpp.dev) with a Stripe shared payment token. It reads the price
+at `/api/credits/mpp`, receives a signed payment challenge, pays, and gets
+back a funded key it can use immediately. See the
+[API reference](https://basketwatchireland.com/api-reference#agent-payments).
+
+### Bespoke access
+
+Bulk historical exports, scheduled delivery, custom matching or an SLA are a
+conversation rather than a signup: **info@basketwatchireland.com**.
+
+The MCP server itself is free and open source. The data behind it is what you
+pay for.
 
 ## What your agent can do
 
@@ -35,7 +69,7 @@ Once installed, your agent has 8 grocery-aware tools:
 | `search_products` | Find products by name in one or all stores |
 | `compare_price_across_stores` | One-call comparison across all 4 supermarkets |
 | `get_promotions` | List products currently on offer at a given store |
-| `recent_price_changes` | Week-over-week price movements |
+| `recent_price_changes` | Day-over-day price movements, with shelf moves, promotions and loyalty prices kept separate |
 | `newly_added_products` | New listings in a configurable lookback window |
 | `removed_products` | Delistings / range cuts |
 | `list_products` | Paginated catalogue dump for walking the full assortment |
@@ -67,7 +101,9 @@ pip install -e .
 | Variable | Default | Purpose |
 |---|---|---|
 | `BASKETWATCH_API_BASE` | (required) | Origin of the BasketWatch API (e.g. `https://basketwatch.fly.dev`, or `https://api.basketwatch.ie` once that's live) |
-| `BASKETWATCH_API_KEY` | (required) | Your BasketWatch API key — issued when you subscribe / request a trial |
+| `BASKETWATCH_API_KEY` | (optional) | Your BasketWatch key. Without one you get a 50-row sample per call; with one, up to `BASKETWATCH_MCP_MAX_ROWS`, metered against your credits |
+| `BASKETWATCH_MCP_MAX_ROWS` | `200` | Most rows a single tool call may return. Raise it for longer answers, lower it to keep a chatty model's credit spend predictable |
+| `BASKETWATCH_MCP_TRANSPORT` | `stdio` | Set to `streamable-http` to host the server for a team instead of running it locally. Note that one hosted server means one key, so all the credits land on that one balance |
 | `BASKETWATCH_MCP_DAILY_LIMIT` | `0` (off) | Optional client-side daily cap — extra safety on top of your key's server-side limit |
 | `BASKETWATCH_MCP_RATE_PER_MIN` | `0` (off) | Optional client-side per-minute rate limit |
 
