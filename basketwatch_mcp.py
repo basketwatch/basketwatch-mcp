@@ -40,6 +40,7 @@ from typing import Any
 
 import httpx
 from mcp.server.fastmcp import FastMCP
+from mcp.types import ToolAnnotations
 
 
 # ---------------------------------------------------------------------------
@@ -267,7 +268,27 @@ mcp = FastMCP(
 )
 
 
-@mcp.tool()
+# Every tool here is a READ against a live external dataset, and says so.
+#
+# Without annotations a client has to assume the worst and prompt the user
+# before each call, which for a data API means a confirmation dialog on every
+# question asked. Declaring these lets a client auto-approve reads, which is
+# the difference between a usable assistant and an irritating one.
+#
+#   read_only    nothing is ever written or deleted
+#   idempotent   asking twice returns the same answer, barring a new scrape
+#   open_world   the answer comes from live retailer data, not a closed set
+def _read_only(title: str) -> ToolAnnotations:
+    return ToolAnnotations(
+        title=title,
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=True,
+    )
+
+
+@mcp.tool(title="Data freshness and coverage", annotations=_read_only("Data freshness and coverage"))
 def status() -> dict:
     """Get a cross-retailer freshness snapshot — SKU count, products on
     promotion, last scrape date and most-recent-run status per supermarket.
@@ -278,7 +299,7 @@ def status() -> dict:
     return _get("/api/status")
 
 
-@mcp.tool()
+@mcp.tool(title="Search Irish supermarket products", annotations=_read_only("Search Irish supermarket products"))
 def search_products(query: str, store: str | None = None, limit: int = 10) -> Any:
     """Search products by name across one or all Irish supermarkets.
 
@@ -299,7 +320,7 @@ def search_products(query: str, store: str | None = None, limit: int = 10) -> An
     )
 
 
-@mcp.tool()
+@mcp.tool(title="Compare a product across supermarkets", annotations=_read_only("Compare a product across supermarkets"))
 def compare_price_across_stores(query: str, limit_per_store: int = 5) -> dict:
     """Compare a product's prices across all four supermarkets in one call.
 
@@ -321,7 +342,7 @@ def compare_price_across_stores(query: str, limit_per_store: int = 5) -> dict:
     return out
 
 
-@mcp.tool()
+@mcp.tool(title="Current promotions at a supermarket", annotations=_read_only("Current promotions at a supermarket"))
 def get_promotions(store: str, limit: int = 25) -> Any:
     """List products currently on promotion at a given supermarket.
 
@@ -341,7 +362,7 @@ def get_promotions(store: str, limit: int = 25) -> Any:
                 params={"limit": min(int(limit), MAX_ROWS)})
 
 
-@mcp.tool()
+@mcp.tool(title="Recent price changes", annotations=_read_only("Recent price changes"))
 def recent_price_changes(store: str, limit: int = 25) -> Any:
     """Week-over-week price movements for a single supermarket — products
     whose shelf price moved between the latest weekly snapshot and the
@@ -357,7 +378,7 @@ def recent_price_changes(store: str, limit: int = 25) -> Any:
                 params={"limit": min(int(limit), MAX_ROWS)})
 
 
-@mcp.tool()
+@mcp.tool(title="Newly stocked products", annotations=_read_only("Newly stocked products"))
 def newly_added_products(store: str, days_back: int = 7, limit: int = 25) -> Any:
     """Products newly listed at a supermarket within a configurable lookback
     window — range additions / new launches.
@@ -371,7 +392,7 @@ def newly_added_products(store: str, days_back: int = 7, limit: int = 25) -> Any
                 params={"days": int(days_back), "limit": min(int(limit), MAX_ROWS)})
 
 
-@mcp.tool()
+@mcp.tool(title="Delisted products", annotations=_read_only("Delisted products"))
 def removed_products(store: str, days_back: int = 7, limit: int = 25) -> Any:
     """Products that have disappeared from a supermarket's catalogue in the
     given lookback window — delistings / range cuts.
@@ -385,7 +406,7 @@ def removed_products(store: str, days_back: int = 7, limit: int = 25) -> Any:
                 params={"days": int(days_back), "limit": min(int(limit), MAX_ROWS)})
 
 
-@mcp.tool()
+@mcp.tool(title="Browse the catalogue", annotations=_read_only("Browse the catalogue"))
 def list_products(store: str, limit: int = 100, offset: int = 0) -> Any:
     """Paginated dump of a supermarket's full catalogue — use when an agent
     needs to scan the whole assortment (e.g. to find products matching
